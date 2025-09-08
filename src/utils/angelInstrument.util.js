@@ -19,11 +19,7 @@ export async function loadAngelScripMaster(force = false) {
       throw new Error("Unexpected scrip master format");
 
     SCRIP_CACHE = res.data;
-    console.log(
-      `✅ Loaded Angel scrip master: ${SCRIP_CACHE.length} instruments`,
-    );
-
-    return true;
+        return true;
   } catch (e) {
     console.error("❌ Failed to load Angel scrip master:", e.message);
     return false;

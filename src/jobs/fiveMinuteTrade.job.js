@@ -60,8 +60,6 @@ async function runTradingLogic() {
     new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
   );
 
-  istNow.setHours(istNow.getHours() - 141);
-
   const istHour = istNow.getHours();
   const istMinute = istNow.getMinutes();
   const second = istNow.getSeconds();
@@ -142,8 +140,11 @@ async function runTradingLogic() {
   const fromdate = formatYMDHM(from);
   const todate = formatYMDHM(boundary);
 
+
+  if(second % 10 !== 0) return;
+
   // Call SmartAPI historical REST via your getCandles service; format per docs [4][5]
-  getCandles({
+  const data = await getCandles({
     exchange: "NSE",
     symboltoken: dailyAsset.Asset.angeloneToken,
     interval: "FIVE_MINUTE",
@@ -151,18 +152,11 @@ async function runTradingLogic() {
     todate,
     adminKeys,
   })
-    .then((res) => {
-      const candles = res?.data?.candles || res?.data || res?.candles || [];
-      const latest = candles[candles.length - 1] || null;
-      console.log("Latest 5m candle:", latest);
-      console.log(istNow.toLocaleString());
-    })
-    .catch((e) => {
-      console.log("Error fetching historical data", e.respones);
-    });
-}
 
-runTradingLogic();
-// cron.schedule("* * * * * *", runTradingLogic);
+  const [_,open,high,low,close]= data.data[data.data.length-1] 
+  console.log({open,high,low,close})
+}
+	
+cron.schedule("* * * * * *", runTradingLogic);
 
 export default {};
