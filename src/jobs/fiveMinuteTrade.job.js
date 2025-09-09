@@ -8,7 +8,11 @@ import BrokerKey from "#models/brokerKey";
 import sequelize from "#configs/database";
 import DailyLevel from "#models/dailyLevel";
 import DailyAsset from "#models/dailyAsset";
-import { getOpeningBalance, getTodaysPnL } from "#services/kite";
+import {
+  getOpeningBalance,
+  getTodaysPnL,
+  placeIntradayOrder,
+} from "#services/kite";
 import OptionBuffer from "#models/optionBuffer";
 import { getCandles, getMarketData } from "#services/angelone";
 import { computeSignal } from "#services/signal";
@@ -61,14 +65,44 @@ function formatYMDHM(d) {
   return `${yyyy}-${mm}-${dd} ${HH}:${MM}`;
 }
 
+async function exitTrade(key) {
+  const trade = key.OptionTradeLogs[0];
+  if (!trade) return;
+
+  let name = dailyAsset.Asset.name;
+  if (trade.baseAssetId !== dailyAsset.Asset.id) {
+    name = await Asset.findDocById(trade.baseAssetId);
+  }
+
+  const symbol = await getZerodhaOption(
+    name,
+    trade.strikePrice,
+    trade.direction,
+  );
+
+  const exitOrderData = {
+    exchange: symbol.exchange,
+    transaction_type: "SELL",
+    tradingsymbol: symbol.tradingsymbol,
+    quantity: trade.quantity,
+    exchange: symbol.exchange,
+    apiKey: key.apiKey,
+    token: key.token,
+  };
+
+  await placeIntradayOrder(exitOrderData);
+  trade.type = "exit";
+  await trade.save();
+}
+
 async function runTradingLogic() {
   // Build IST Date using toLocaleString with Asia/Kolkata [6][14]
   const istNow = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
   );
 
-  istNow.setHours(istNow.getHours() - 14);
-  istNow.setMinutes(istNow.getMinutes() - 20);
+  istNow.setHours(istNow.getHours() - 15);
+  // istNow.setMinutes(istNow.getMinutes() - 20);
 
   const istHour = istNow.getHours();
   const istMinute = istNow.getMinutes();
@@ -217,13 +251,14 @@ async function runTradingLogic() {
     };
 
     ltp = await getMarketData({ mode: "LTP", exchangeTokens, adminKeys });
-    ltp = ltp.data.fetched[0]?.ltp;
+    ltp = ltp.data.fetched[0]?.ltp ?? 1000000;
   }
 
-  await Promise.allSettled(
+  const response = await Promise.allSettled(
     keys.map(async (key) => {
       try {
         key.balance = Number(key.balance);
+
         const lastTrade = key.OptionTradeLogs[0];
 
         const pnl = await getTodaysPnL({
@@ -268,12 +303,38 @@ async function runTradingLogic() {
           await exitTrade(key);
         }
 
-        //FIX:Place new trade here
+        const newOrderData = {
+          exchange: tradingSymbol.exchange,
+          tradingsymbol: "NIFTY2591624900CE" ?? tradingSymbol.tradingsymbol,
+          quantity: Math.floor(
+            (key.balance * key.usableFund) /
+              100 /
+              (tradingSymbol.lot_size * ltp),
+          ),
+          apiKey: key.apiKey,
+          token: key.token,
+        };
+
+        if (newOrderData.quantity === 0) return;
+        newOrderData.quantity *= tradingSymbol.lot_size;
+
+        await placeIntradayOrder(newOrderData);
+
+        await OptionTradeLog.create({
+          brokerKeyId: key.id,
+          direction,
+          strikePrice: assetPrice,
+          quantity: newOrderData.quantity,
+          type: "entry",
+          baseAssetId: dailyAsset.Asset.id,
+        });
       } catch (e) {
         console.log(e);
       }
     }),
   );
+
+  console.log(response);
 }
 
 cron.schedule("* * * * * *", runTradingLogic);
