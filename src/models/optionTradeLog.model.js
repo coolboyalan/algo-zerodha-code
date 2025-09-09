@@ -5,31 +5,15 @@ import BaseModel from "#models/base";
 import { DataTypes } from "sequelize";
 import BrokerKey from "#models/brokerKey";
 
-class TradeLog extends BaseModel {}
+class OptionTradeLog extends BaseModel {}
 
-TradeLog.initialize({
-  brokerId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: Broker,
-      key: Broker.primaryKeyAttribute,
-    },
-  },
+OptionTradeLog.initialize({
   brokerKeyId: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
       model: BrokerKey,
       key: BrokerKey.primaryKeyAttribute,
-    },
-  },
-  userId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: User,
-      key: User.primaryKeyAttribute,
     },
   },
   baseAssetId: {
@@ -40,29 +24,26 @@ TradeLog.initialize({
       key: Asset.primaryKeyAttribute,
     },
   },
-  asset: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
   direction: {
-    type: DataTypes.ENUM("buy", "sell"),
+    type: DataTypes.ENUM("CE", "PE"),
     allowNull: false,
   },
   quantity: {
     type: DataTypes.INTEGER,
+    allowNull: false,
   },
   type: {
     type: DataTypes.ENUM("entry", "exit"),
     allowNull: false,
   },
+  strikePrice: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
 });
 
-TradeLog.belongsTo(User, {
-  foreignKey: "userId",
+BrokerKey.hasMany(OptionTradeLog, {
+  foreignKey: "brokerKeyId",
 });
 
-TradeLog.belongsTo(Broker, {
-  foreignKey: "brokerId",
-});
-
-export default TradeLog;
+export default OptionTradeLog;

@@ -1,13 +1,20 @@
+import axios from "axios";
 import cron from "node-cron";
 import env from "#configs/env";
+import User from "#models/user";
 import Asset from "#models/asset";
 import Broker from "#models/broker";
-import TradeLog from "#models/tradeLog";
 import BrokerKey from "#models/brokerKey";
 import sequelize from "#configs/database";
 import DailyLevel from "#models/dailyLevel";
 import DailyAsset from "#models/dailyAsset";
-import { getCandles } from "#services/angelone";
+import { getOpeningBalance, getTodaysPnL } from "#services/kite";
+import OptionBuffer from "#models/optionBuffer";
+import { getCandles, getMarketData } from "#services/angelone";
+import { computeSignal } from "#services/signal";
+import OptionTradeLog from "#models/optionTradeLog";
+import { getAngelOption } from "#utils/angelInstrument";
+import { getZerodhaOption } from "#utils/zerodhaInstrument";
 import { logInfo, logWarn, logError } from "#utils/logger";
 
 let keys = [];
@@ -60,7 +67,8 @@ async function runTradingLogic() {
     new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
   );
 
-  istNow.setHours(istNow.getHours() - 20);
+  istNow.setHours(istNow.getHours() - 14);
+  istNow.setMinutes(istNow.getMinutes() - 20);
 
   const istHour = istNow.getHours();
   const istMinute = istNow.getMinutes();
@@ -76,7 +84,7 @@ async function runTradingLogic() {
     (istHour > 9 && istHour < 15) ||
     (istHour === 15 && istMinute <= 15);
 
-  if (!preRange && !isInMarketRange) return;
+  if (!preRange || !isInMarketRange) return;
 
   // Reuse existing yyyy/mm/dd construction [4][14]
   const yyyy = istNow.getFullYear();
@@ -109,16 +117,47 @@ async function runTradingLogic() {
     }
     if (!keys || !adminKeys || (istMinute % 1 === 0 && second % 40 === 0)) {
       const responseKeys = await BrokerKey.findAll({
-        include: [{ model: Broker, where: { name: env.BROKER } }],
-        where: { status: true },
+        include: [
+          {
+            model: Broker,
+            where: { name: env.BROKER },
+          },
+          {
+            model: User,
+          },
+          {
+            model: OptionTradeLog,
+            where: {
+              type: "entry",
+            },
+            required: false,
+            limit: 1,
+            order: [["createdAt", "DESC"]],
+          },
+        ],
+        where: {
+          status: true,
+        },
       });
-      const [admin] = await sequelize.query(
-        `SELECT * FROM "BrokerKeys"
-       INNER JOIN "Users" ON "BrokerKeys"."userId" = "Users"."id"
-       INNER JOIN "Brokers" ON "BrokerKeys"."brokerId" = "Brokers"."id"
-       WHERE "Users"."role" = 'admin' AND "Brokers"."name" = 'Angel One'`,
+
+      adminKeys = await BrokerKey.findDoc(
+        {},
+        {
+          include: [
+            {
+              model: Broker,
+              where: { name: "Angel One" },
+            },
+            {
+              model: User,
+              where: {
+                role: "admin",
+              },
+            },
+          ],
+        },
       );
-      adminKeys = admin[0];
+
       keys = responseKeys;
       logInfo("Refreshed keys/adminKeys", {
         keysCount: Array.isArray(keys) ? keys.length : 0,
@@ -155,7 +194,86 @@ async function runTradingLogic() {
   });
 
   const [_, o, h, l, c] = data.data[data.data.length - 1];
-  console.log({ o, h, l, c });
+  const candle = { o, h, l, c };
+
+  const { signal, assetPrice, direction } = computeSignal({
+    candle,
+    levels: dailyLevels,
+  });
+
+  let symbol, tradingSymbol, ltp;
+
+  if (direction) {
+    symbol = getAngelOption(dailyAsset.Asset.name, assetPrice, direction);
+
+    tradingSymbol = getZerodhaOption(
+      dailyAsset.Asset.name,
+      assetPrice,
+      direction,
+    );
+
+    const exchangeTokens = {
+      [symbol.exch_seg]: [symbol.token],
+    };
+
+    ltp = await getMarketData({ mode: "LTP", exchangeTokens, adminKeys });
+    ltp = ltp.data.fetched[0]?.ltp;
+  }
+
+  await Promise.allSettled(
+    keys.map(async (key) => {
+      try {
+        key.balance = Number(key.balance);
+        const lastTrade = key.OptionTradeLogs[0];
+
+        const pnl = await getTodaysPnL({
+          apiKey: key.apiKey,
+          token: key.token,
+        });
+
+        if (pnl <= -(key.balance * key.lossLimit) / 100) {
+          await exitTrade(key);
+          key.status = false;
+          await key.save();
+        } else if (pnl >= (key.balance * key.profitLimit) / 100) {
+          await exitTrade(key);
+          key.status = false;
+          await key.save();
+        }
+
+        if (second >= 10) return;
+        if (istMinute % 5 !== 0) return;
+        if (signal === "No Action") return;
+
+        if (signal === "Exit" || signal === "PE Exit" || signal === "CE Exit") {
+          if (!lastTrade) return;
+
+          if (lastTrade.direction === "PE" && signal === "PE Exit") {
+            await exitTrade(key);
+            key.status = false;
+            await key.save();
+            return;
+          }
+
+          if (lastTrade.direction === "CE" && signal === "CE Exit") {
+            await exitTrade(key);
+            key.status = false;
+            await key.save();
+            return;
+          }
+        }
+
+        if (lastTrade) {
+          if (lastTrade.direction === direction) return;
+          await exitTrade(key);
+        }
+
+        //FIX:Place new trade here
+      } catch (e) {
+        console.log(e);
+      }
+    }),
+  );
 }
 
 cron.schedule("* * * * * *", runTradingLogic);

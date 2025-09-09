@@ -19,7 +19,7 @@ export async function loadAngelScripMaster(force = false) {
       throw new Error("Unexpected scrip master format");
 
     SCRIP_CACHE = res.data;
-        return true;
+    return true;
   } catch (e) {
     console.error("❌ Failed to load Angel scrip master:", e.message);
     return false;
@@ -41,7 +41,7 @@ function normalizeIndexBaseName(name) {
   return String(name || "").toUpperCase();
 }
 
-export function resolveAngelOption(baseName, strike, direction) {
+export function getAngelOption(baseName, strike, direction) {
   const base = normalizeIndexBaseName(baseName); // e.g. NIFTY, BANKNIFTY, FINNIFTY
   const typ = String(direction || "").toUpperCase(); // CE / PE
   if (!SCRIP_CACHE.length) return null;

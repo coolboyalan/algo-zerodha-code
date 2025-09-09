@@ -163,7 +163,7 @@ function processAndCacheImmediateOptions(indexKey, allRecords) {
   }
 }
 
-export function getSpecificCachedOption(indexKey, strikePrice, direction) {
+export function getZerodhaOption(indexKey, strikePrice, direction) {
   const cachedOptions = appCache[indexKey];
   if (!cachedOptions?.length) {
     console.warn(`Cache for ${indexKey} is empty.`);
@@ -229,3 +229,5 @@ cron.schedule(
     timezone: "Asia/Kolkata",
   },
 );
+
+main();

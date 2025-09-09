@@ -4,6 +4,7 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
   let signal = "No Action";
   let direction;
   let assetPrice;
+  const { c: price } = candle;
 
   if (price % 100 > 50) {
     assetPrice = parseInt(price / 100) * 100 + 100;
@@ -51,12 +52,6 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
     }
     return false;
   });
-
-  if (direction === "CE") {
-    assetPrice += 600;
-  } else if (direction === "PE") {
-    assetPrice -= 600;
-  }
 
   return { signal, direction, assetPrice };
 }

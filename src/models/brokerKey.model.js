@@ -53,6 +53,38 @@ BrokerKey.initialize(
     redirectUrl: {
       type: DataTypes.TEXT,
     },
+    profitLimit: {
+      type: DataTypes.INTEGER,
+      defaultValue: 20,
+      allowNull: false,
+      validate: {
+        min: 1,
+        max: 10000,
+      },
+    },
+    lossLimit: {
+      type: DataTypes.INTEGER,
+      defaultValue: 10,
+      allowNull: false,
+      validate: {
+        min: 0,
+        max: 100,
+      },
+    },
+    usableFund: {
+      type: DataTypes.INTEGER,
+      defaultValue: 40,
+      allowNull: false,
+      validate: {
+        min: 0,
+        max: 100,
+      },
+    },
+    timeFrame: {
+      type: DataTypes.INTEGER,
+      defaultValue: 5,
+      allowNull: false,
+    },
   },
   {
     indexes: [
