@@ -171,6 +171,8 @@ async function runTradingLogic() {
         },
       });
 
+      buffer = await OptionBuffer.findOne();
+
       adminKeys = await BrokerKey.findDoc(
         {},
         {
@@ -227,7 +229,7 @@ async function runTradingLogic() {
   const [_, o, h, l, c] = data.data[data.data.length - 1];
   const candle = { o, h, l, c };
 
-  const { signal, assetPrice, direction } = computeSignal({
+  let { signal, assetPrice, direction } = computeSignal({
     candle,
     levels: dailyLevels,
   });
@@ -235,6 +237,11 @@ async function runTradingLogic() {
   let symbol, tradingSymbol, ltp;
 
   if (direction) {
+    if (buffer) {
+      if (direction === "CE") assetPrice += buffer.value;
+      if (direction === "PE") assetPrice -= buffer.value;
+    }
+
     symbol = getAngelOption(dailyAsset.Asset.name, assetPrice, direction);
 
     tradingSymbol = getZerodhaOption(
@@ -302,7 +309,7 @@ async function runTradingLogic() {
 
         const newOrderData = {
           exchange: tradingSymbol.exchange,
-          tradingsymbol: "NIFTY2591624900CE" ?? tradingSymbol.tradingsymbol,
+          tradingsymbol: tradingSymbol.tradingsymbol,
           quantity: Math.floor(
             (key.balance * key.usableFund) /
               100 /
@@ -312,7 +319,11 @@ async function runTradingLogic() {
           token: key.token,
         };
 
-        if (newOrderData.quantity === 0) return;
+        if (newOrderData.quantity === 0) {
+          console.log(`Insufficient balance for in key, Skipping`);
+          return;
+        }
+
         newOrderData.quantity *= tradingSymbol.lot_size;
 
         await placeIntradayOrder(newOrderData);
@@ -331,7 +342,6 @@ async function runTradingLogic() {
     }),
   );
 
-  console.log(response);
 }
 
 cron.schedule("* * * * * *", runTradingLogic);

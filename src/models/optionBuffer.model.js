@@ -5,7 +5,7 @@ class OptionBuffer extends BaseModel {}
 
 OptionBuffer.initialize(
   {
-    name: {
+    value: {
       type: DataTypes.INTEGER,
       allowNull: false,
       unique: true, // fixed typo "unqiue"
@@ -36,7 +36,5 @@ OptionBuffer.initialize(
     },
   },
 );
-
-OptionBuffer.sync({ alter: true });
 
 export default OptionBuffer;
