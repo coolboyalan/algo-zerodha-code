@@ -234,6 +234,8 @@ async function runTradingLogic() {
     levels: dailyLevels,
   });
 
+  console.log(signal, assetPrice, direction);
+
   let symbol, tradingSymbol, ltp;
 
   if (direction) {
@@ -341,7 +343,6 @@ async function runTradingLogic() {
       }
     }),
   );
-
 }
 
 cron.schedule("* * * * * *", runTradingLogic);

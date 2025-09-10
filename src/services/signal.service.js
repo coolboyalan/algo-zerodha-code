@@ -6,12 +6,14 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
   let assetPrice;
   const { c: price } = candle;
 
+  // round price to nearest 100
   if (price % 100 > 50) {
     assetPrice = parseInt(price / 100) * 100 + 100;
   } else {
     assetPrice = parseInt(price / 100) * 100;
   }
 
+  // no trades between tc and bc
   if (tc != null && bc != null) {
     if (price >= tc && price <= tc + BUFFER) {
       direction = "CE";
@@ -20,25 +22,25 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
       direction = "PE";
       signal = "Sell";
     } else if (price < tc && price > bc) {
-      signal = "Exit"; // no trades between tc and bc
+      signal = "Exit";
     }
   }
 
-  const levelsMap = { r1, r2, r3, r4, s1, s2, s3, s4 };
-  const resistances = [r1, r2, r3, r4].filter((l) => l != null);
-  const supports = [s1, s2, s3, s4].filter((l) => l != null);
+  // Levels in correct order: r4 > r3 > r2 > r1 > tc > bc > s1 > s2 > s3 > s4
+  const orderedLevels = [r4, r3, r2, r1, tc, bc, s1, s2, s3, s4].filter(
+    (l) => l != null
+  );
 
-  for (const level of Object.values(levelsMap)) {
-    if (level == null) continue;
+  for (let i = 0; i < orderedLevels.length; i++) {
+    const level = orderedLevels[i];
 
-    // --- Call trade check ---
+    // --- Call trade check (above level within buffer) ---
     if (price > level && price <= level + BUFFER) {
       let gapOk = true;
 
-      // extra condition for r2 and above
-      const idx = resistances.indexOf(level);
-      if (idx >= 1 && idx < resistances.length - 1) {
-        const nextHigher = resistances[idx + 1];
+      // check next higher level
+      if (i > 0) {
+        const nextHigher = orderedLevels[i - 1]; // since array is top→bottom
         if (nextHigher != null && nextHigher - level < 50) {
           gapOk = false;
         }
@@ -50,14 +52,13 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
       }
     }
 
-    // --- Put trade check ---
+    // --- Put trade check (below level within buffer) ---
     else if (price < level && price >= level - BUFFER) {
       let gapOk = true;
 
-      // extra condition for s2 and below
-      const idx = supports.indexOf(level);
-      if (idx >= 1 && idx < supports.length - 1) {
-        const nextLower = supports[idx + 1];
+      // check next lower level
+      if (i < orderedLevels.length - 1) {
+        const nextLower = orderedLevels[i + 1];
         if (nextLower != null && level - nextLower < 50) {
           gapOk = false;
         }
@@ -70,9 +71,10 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
     }
   }
 
+  // Exit check if still No Action
   const innerLevelMap = { r1, r2, r3, r4, s1, s2, s3, s4, tc, bc };
   const { o, c } = candle;
-  Object.entries(innerLevelMap).find(([levelName, level]) => {
+  Object.entries(innerLevelMap).find(([_, level]) => {
     if (signal === "No Action") {
       if (c > level && o < level) {
         signal = "PE Exit";
@@ -88,3 +90,4 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
 
   return { signal, direction, assetPrice };
 }
+
