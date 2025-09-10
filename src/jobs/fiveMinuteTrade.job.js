@@ -101,9 +101,6 @@ async function runTradingLogic() {
     new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
   );
 
-  istNow.setHours(istNow.getHours() - 15);
-  // istNow.setMinutes(istNow.getMinutes() - 20);
-
   const istHour = istNow.getHours();
   const istMinute = istNow.getMinutes();
   const second = istNow.getSeconds();
