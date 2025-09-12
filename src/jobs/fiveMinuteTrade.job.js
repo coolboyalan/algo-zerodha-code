@@ -276,10 +276,12 @@ async function runTradingLogic() {
           await exitTrade(key);
           key.status = false;
           await key.save();
+          return;
         } else if (pnl >= (key.balance * key.profitLimit) / 100) {
           await exitTrade(key);
           key.status = false;
           await key.save();
+          return;
         }
 
         if (second >= 10) return;
