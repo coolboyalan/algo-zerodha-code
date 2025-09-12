@@ -65,6 +65,14 @@ function formatYMDHM(d) {
   return `${yyyy}-${mm}-${dd} ${HH}:${MM}`;
 }
 
+async function exitOpenTrades(keys) {
+  const data = await keys.map(async (key) => {
+    await exitTrade(key);
+    key.status = false;
+    await key.save();
+  });
+}
+
 async function exitTrade(key) {
   const trade = key.OptionTradeLogs[0];
   if (!trade) return;
