@@ -71,6 +71,8 @@ async function exitOpenTrades(keys) {
     key.status = false;
     await key.save();
   });
+
+  await Promise.allSettled(data);
 }
 
 async function exitTrade(key) {
@@ -99,6 +101,7 @@ async function exitTrade(key) {
   };
 
   await placeIntradayOrder(exitOrderData);
+  console.log("Exited open trade", exitOrderData);
   trade.type = "exit";
   await trade.save();
 }
@@ -339,6 +342,8 @@ async function runTradingLogic() {
         newOrderData.quantity *= tradingSymbol.lot_size;
 
         await placeIntradayOrder(newOrderData);
+
+        console.log("New Trade Entry", newOrderData);
 
         await OptionTradeLog.create({
           brokerKeyId: key.id,
