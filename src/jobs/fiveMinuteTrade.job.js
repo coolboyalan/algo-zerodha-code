@@ -272,7 +272,7 @@ async function runTradingLogic() {
   }
 
   const response = await Promise.allSettled(
-    keys.map(async (key) => {
+    keys.map(async (key, index) => {
       try {
         key.balance = Number(key.balance);
 
@@ -343,7 +343,7 @@ async function runTradingLogic() {
 
         await placeIntradayOrder(newOrderData);
 
-        console.log("New Trade Entry", newOrderData);
+        console.log("New Trade Entry", newOrderData, key.toJSON(), index);
 
         await OptionTradeLog.create({
           brokerKeyId: key.id,
