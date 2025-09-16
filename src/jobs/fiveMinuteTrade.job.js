@@ -245,8 +245,6 @@ async function runTradingLogic() {
     levels: dailyLevels,
   });
 
-  console.log(signal, assetPrice, direction);
-
   let symbol, tradingSymbol, ltp;
 
   if (direction) {
@@ -354,7 +352,7 @@ async function runTradingLogic() {
           baseAssetId: dailyAsset.Asset.id,
         });
       } catch (e) {
-        console.log(e);
+        console.log(e, istNow);
       }
     }),
   );

@@ -4,7 +4,7 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
   let signal = "No Action";
   let direction;
   let assetPrice;
-  const { c: price } = candle;
+  let { c: price } = candle;
 
   // round price to nearest 100
   if (price % 100 > 50) {
@@ -28,7 +28,7 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
 
   // Levels in correct order: r4 > r3 > r2 > r1 > tc > bc > s1 > s2 > s3 > s4
   const orderedLevels = [r4, r3, r2, r1, tc, bc, s1, s2, s3, s4].filter(
-    (l) => l != null
+    (l) => l != null,
   );
 
   for (let i = 0; i < orderedLevels.length; i++) {
@@ -41,7 +41,7 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
       // check next higher level
       if (i > 0) {
         const nextHigher = orderedLevels[i - 1]; // since array is top→bottom
-        if (nextHigher != null && nextHigher - level < 50) {
+        if (nextHigher != null && nextHigher - level < 0) {
           gapOk = false;
         }
       }
@@ -59,7 +59,7 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
       // check next lower level
       if (i < orderedLevels.length - 1) {
         const nextLower = orderedLevels[i + 1];
-        if (nextLower != null && level - nextLower < 50) {
+        if (nextLower != null && level - nextLower < 0) {
           gapOk = false;
         }
       }
@@ -90,4 +90,3 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
 
   return { signal, direction, assetPrice };
 }
-
