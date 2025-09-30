@@ -126,7 +126,7 @@ async function runTradingLogic() {
     (istHour > 9 && istHour < 15) ||
     (istHour === 15 && istMinute <= 15);
 
-  if (!preRange || !isInMarketRange) return;
+  // if (!preRange || !isInMarketRange) return;
 
   // Reuse existing yyyy/mm/dd construction [4][14]
   const yyyy = istNow.getFullYear();
@@ -245,8 +245,6 @@ async function runTradingLogic() {
     levels: dailyLevels,
   });
 
-  console.log(signal, assetPrice, direction);
-
   let symbol, tradingSymbol, ltp;
 
   if (direction) {
@@ -271,6 +269,8 @@ async function runTradingLogic() {
     ltp = ltp.data.fetched[0]?.ltp ?? 1000000;
   }
 
+  console.log(signal, assetPrice, direction, candle);
+
   const response = await Promise.allSettled(
     keys.map(async (key, index) => {
       try {
@@ -282,6 +282,7 @@ async function runTradingLogic() {
           apiKey: key.apiKey,
           token: key.token,
         });
+        console.log(key.balance, pnl);
 
         if (pnl <= -(key.balance * key.lossLimit) / 100) {
           await exitTrade(key);
@@ -313,6 +314,11 @@ async function runTradingLogic() {
             await exitTrade(key);
             key.status = false;
             await key.save();
+            return;
+          }
+
+          if (signal === "Exit") {
+            await exitTrade(key);
             return;
           }
         }

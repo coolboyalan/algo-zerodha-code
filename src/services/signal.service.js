@@ -23,12 +23,13 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
       signal = "Sell";
     } else if (price < tc && price > bc) {
       signal = "Exit";
+      return { signal, direction, assetPrice }; // 🚨 stop here
     }
   }
 
   // Levels in correct order: r4 > r3 > r2 > r1 > tc > bc > s1 > s2 > s3 > s4
   const orderedLevels = [r4, r3, r2, r1, tc, bc, s1, s2, s3, s4].filter(
-    (l) => l != null
+    (l) => l != null,
   );
 
   for (let i = 0; i < orderedLevels.length; i++) {
@@ -90,4 +91,3 @@ export function computeSignal({ candle, levels, bufferKey = "buffer" }) {
 
   return { signal, direction, assetPrice };
 }
-
